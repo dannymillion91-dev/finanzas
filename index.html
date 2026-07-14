@@ -192,6 +192,13 @@
 
     <div class="section-title">Gasto por categoría</div>
     <div id="catBreakdown"></div>
+
+    <div class="section-title">Copia de seguridad</div>
+    <div class="hint">Guarda TODOS tus datos en un archivo dentro de tu dispositivo. Si cambias de teléfono o pasa algo, podrás restaurarlos aquí.</div>
+    <div class="actions">
+      <button class="btn btn-add" onclick="backupData()">💾 Guardar copia</button>
+      <button class="btn btn-manual" onclick="restoreData()">↩️ Restaurar copia</button>
+    </div>
   </div>
 
   <!-- INGRESOS -->
@@ -651,7 +658,7 @@ function photoFlow(kind){
   if(!state.accounts.length){ alert('Primero crea una cuenta en la pestaña Inicio.'); return; }
   if(!getAiUrl()){ askAiUrl(kind); return; }
   const inp=document.createElement('input');
-  inp.type='file'; inp.accept='image/*'; inp.capture='environment'; inp.style.display='none';
+  inp.type='file'; inp.accept='image/*'; inp.style.display='none';
   inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(f) processPhoto(f,kind); inp.remove(); };
   document.body.appendChild(inp); inp.click();
 }
@@ -773,6 +780,41 @@ async function exportExcel(){
   XLSX.writeFile(wb,'Informe-Financiero-'+period.replace(' ','-')+'.xlsx');
 }
 document.getElementById('btnExport').addEventListener('click',exportReport);
+
+/* ============ COPIA DE SEGURIDAD ============ */
+function backupData(){
+  try{
+    const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='finanzas-copia-'+todayISO()+'.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }catch(e){ alert('No se pudo crear la copia. Inténtalo de nuevo.'); }
+}
+function restoreData(){
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='application/json,.json'; inp.style.display='none';
+  inp.onchange=()=>{
+    const f=inp.files&&inp.files[0];
+    if(!f){ inp.remove(); return; }
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const d=JSON.parse(r.result);
+        if(!d||!Array.isArray(d.accounts)) throw new Error('formato');
+        if(!confirm('Esto REEMPLAZARÁ todos los datos actuales de esta app por los de la copia. ¿Continuar?')){ inp.remove(); return; }
+        state=Object.assign({accounts:[],incomes:[],expenses:[],categories:[],projections:[]},d);
+        ['accounts','incomes','expenses','categories','projections'].forEach(k=>{ if(!Array.isArray(state[k])) state[k]=[]; });
+        save(); renderAll();
+        alert('✅ Copia restaurada correctamente.');
+      }catch(e){ alert('Ese archivo no es una copia válida de esta app.'); }
+      inp.remove();
+    };
+    r.readAsText(f);
+  };
+  document.body.appendChild(inp); inp.click();
+}
 
 /* ============ SERVICE WORKER (para instalar como app) ============ */
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
