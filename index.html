@@ -197,7 +197,7 @@
   <!-- INGRESOS -->
   <div class="view" id="view-ingresos">
     <div class="actions">
-      <button class="btn btn-photo" onclick="photoSoon()">
+      <button class="btn btn-photo" onclick="photoFlow('income')">
         <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
         Foto
       </button>
@@ -213,7 +213,7 @@
   <!-- GASTOS -->
   <div class="view" id="view-gastos">
     <div class="actions">
-      <button class="btn btn-photo" onclick="photoSoon()">
+      <button class="btn btn-photo" onclick="photoFlow('expense')">
         <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
         Foto
       </button>
@@ -461,14 +461,16 @@ function acctOptions(sel){ return state.accounts.map(a=>`<option value="${a.id}"
 function catOptions(sel){ return state.categories.map(c=>`<option value="${c.id}" ${c.id===sel?'selected':''}>${esc(c.name)}</option>`).join(''); }
 
 /* ============ INGRESO ============ */
-function openIncome(){
+function openIncome(pre){
   if(!state.accounts.length){ alert('Primero crea una cuenta en la pestaña Inicio.'); return; }
-  openModal(`<h2>Nuevo ingreso</h2>
-    <div class="fld"><label>Monto (${CUR})</label><input id="fAmt" type="number" inputmode="decimal" step="0.01" placeholder="0.00" autofocus></div>
-    <div class="fld"><label>Concepto</label><input id="fConcept" placeholder="Ej. Nómina, venta..."></div>
-    <div class="fld"><label>Fecha</label><input id="fDate" type="date" value="${todayISO()}" max="${todayISO()}"></div>
+  pre=pre||{};
+  const banner=pre._ai?`<div class="hint" style="margin-bottom:14px">📸 Datos leídos por la IA. <b>Revísalos y corrígelos</b> si hace falta antes de guardar.</div>`:'';
+  openModal(`<h2>Nuevo ingreso</h2>${banner}
+    <div class="fld"><label>Monto (${CUR})</label><input id="fAmt" type="number" inputmode="decimal" step="0.01" placeholder="0.00" value="${pre.amount!=null?pre.amount:''}" autofocus></div>
+    <div class="fld"><label>Concepto</label><input id="fConcept" placeholder="Ej. Nómina, venta..." value="${pre.concept?esc(pre.concept):''}"></div>
+    <div class="fld"><label>Fecha</label><input id="fDate" type="date" value="${pre.date||todayISO()}" max="${todayISO()}"></div>
     <div class="fld"><label>¿A qué cuenta va?</label><select id="fAcct">${acctOptions()}</select></div>
-    <div class="fld"><label>Nota (opcional)</label><input id="fNotes"></div>
+    <div class="fld"><label>Nota (opcional)</label><input id="fNotes" value="${pre.bank?esc(pre.bank):''}"></div>
     <div class="modal-btns"><button class="cancel" onclick="closeModal()">Cancelar</button><button class="save" onclick="saveIncome()">Guardar</button></div>`);
 }
 function saveIncome(){
@@ -483,13 +485,17 @@ function saveIncome(){
 }
 
 /* ============ GASTO ============ */
-function openExpense(){
+function openExpense(pre){
   if(!state.accounts.length){ alert('Primero crea una cuenta en la pestaña Inicio.'); return; }
-  openModal(`<h2>Nuevo gasto</h2>
-    <div class="fld"><label>Monto (${CUR})</label><input id="fAmt" type="number" inputmode="decimal" step="0.01" placeholder="0.00" autofocus></div>
-    <div class="fld"><label>Concepto</label><input id="fConcept" placeholder="Ej. Supermercado..."></div>
-    <div class="fld"><label>Categoría</label><select id="fCat">${catOptions()}</select></div>
-    <div class="fld"><label>Fecha</label><input id="fDate" type="date" value="${todayISO()}" max="${todayISO()}"></div>
+  pre=pre||{};
+  const banner=pre._ai?`<div class="hint" style="margin-bottom:14px">📸 Datos leídos por la IA. <b>Revísalos y corrígelos</b> si hace falta antes de guardar.</div>`:'';
+  let catId='';
+  if(pre.category){ const c=state.categories.find(x=>x.name.toLowerCase()===String(pre.category).toLowerCase()); if(c) catId=c.id; }
+  openModal(`<h2>Nuevo gasto</h2>${banner}
+    <div class="fld"><label>Monto (${CUR})</label><input id="fAmt" type="number" inputmode="decimal" step="0.01" placeholder="0.00" value="${pre.amount!=null?pre.amount:''}" autofocus></div>
+    <div class="fld"><label>Concepto</label><input id="fConcept" placeholder="Ej. Supermercado..." value="${pre.concept?esc(pre.concept):(pre.store?esc(pre.store):'')}"></div>
+    <div class="fld"><label>Categoría</label><select id="fCat">${catOptions(catId)}</select></div>
+    <div class="fld"><label>Fecha</label><input id="fDate" type="date" value="${pre.date||todayISO()}" max="${todayISO()}"></div>
     <div class="fld"><label>¿De qué cuenta salió?</label><select id="fAcct">${acctOptions()}</select></div>
     <div class="fld"><label>Nota (opcional)</label><input id="fNotes"></div>
     <div class="modal-btns"><button class="cancel" onclick="closeModal()">Cancelar</button><button class="save" onclick="saveExpense()">Guardar</button></div>`);
@@ -636,13 +642,59 @@ function dayDetail(iso){
   openModal(html);
 }
 
-/* ============ FOTO (próximamente) ============ */
-function photoSoon(){
-  openModal(`<h2>📸 Leer recibo con IA</h2>
-    <div class="hint" style="margin-bottom:0">Esta función usa la <b>inteligencia artificial de Claude</b> para leer la foto de un recibo y rellenar el monto, la fecha y la categoría por ti.<br><br>
-    Para activarla necesitas conectar una <b>clave de API de Anthropic</b> (tiene un pequeño costo por cada foto). Cuando quieras, lo configuramos juntos paso a paso.<br><br>
-    Por ahora usa el botón <b>Manual</b> para registrar tus movimientos.</div>
-    <div class="modal-btns"><button class="save" onclick="closeModal()">Entendido</button></div>`);
+/* ============ FOTO CON IA ============ */
+const AI_URL_KEY='misFinanzas_aiUrl';
+function getAiUrl(){ return localStorage.getItem(AI_URL_KEY)||''; }
+function setAiUrl(u){ localStorage.setItem(AI_URL_KEY,u.trim()); }
+
+function photoFlow(kind){
+  if(!state.accounts.length){ alert('Primero crea una cuenta en la pestaña Inicio.'); return; }
+  if(!getAiUrl()){ askAiUrl(kind); return; }
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='image/*'; inp.capture='environment'; inp.style.display='none';
+  inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(f) processPhoto(f,kind); inp.remove(); };
+  document.body.appendChild(inp); inp.click();
+}
+
+function askAiUrl(kind){
+  openModal(`<h2>Conectar lector de recibos</h2>
+    <div class="hint">Pega aquí la <b>dirección de tu lector seguro</b> (la que termina en <b>.workers.dev</b>). Solo se pide una vez.</div>
+    <div class="fld"><label>Dirección del lector</label><input id="aiUrl" placeholder="https://...workers.dev"></div>
+    <div class="modal-btns"><button class="cancel" onclick="closeModal()">Cancelar</button><button class="save" onclick="saveAiUrl('${kind}')">Guardar</button></div>`);
+}
+function saveAiUrl(kind){
+  const u=document.getElementById('aiUrl').value.trim();
+  if(!/^https:\/\/.+/.test(u)) return alert('Pega una dirección válida que empiece por https://');
+  setAiUrl(u); closeModal(); setTimeout(()=>photoFlow(kind),150);
+}
+
+function processPhoto(file,kind){
+  openModal(`<h2>📸 Leyendo el recibo…</h2><div class="hint" style="margin-bottom:0">La IA está leyendo la foto. Esto tarda unos segundos.</div>`);
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const img=new Image();
+    img.onload=async()=>{
+      const max=1200; let w=img.width,h=img.height;
+      if(w>max||h>max){ const s=Math.min(max/w,max/h); w=Math.round(w*s); h=Math.round(h*s); }
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      const b64=cv.toDataURL('image/jpeg',0.8).split(',')[1];
+      try{
+        const res=await fetch(getAiUrl(),{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({image:b64,mediaType:'image/jpeg',kind})});
+        const data=await res.json();
+        closeModal();
+        if(data.error){ alert('No se pudo leer el recibo: '+data.error+'\n\nPuedes registrarlo con el botón Manual.'); return; }
+        data._ai=true;
+        if(kind==='income') openIncome(data); else openExpense(data);
+      }catch(e){
+        closeModal();
+        if(confirm('No se pudo conectar con el lector. ¿Quieres volver a escribir su dirección?')){ localStorage.removeItem(AI_URL_KEY); }
+      }
+    };
+    img.src=reader.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 /* ============ EXPORTAR ============ */
